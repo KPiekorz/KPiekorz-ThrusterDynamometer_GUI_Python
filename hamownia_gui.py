@@ -3,7 +3,7 @@ import socket
 from file_operations import read_frame_from_file
 
 
-HOST = '127.0.0.0'
+HOST = '127.0.0.1'
 PORT = 1234
 # HOST = '169.254.57.55'
 # PORT = 80
