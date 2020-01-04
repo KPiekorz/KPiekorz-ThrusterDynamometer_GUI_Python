@@ -8,8 +8,10 @@ PORT = 1234
 # HOST = '169.254.57.55'
 # PORT = 80
 
-event = threading.Event()
-event.clear()
+event_receiveframe = threading.Event()
+event_receiveframe.clear()
+event_fileoperation = threading.Event()
+event_fileoperation.clear()
 
 ###################################################################################################################################
 
@@ -25,30 +27,32 @@ class Switcher(object):
             s.connect((HOST, PORT))
             s.send(b'[0|0|0|0|0]')
             s.close()
-        return "Zatrzymano prace hamowni!!!"
 
     def number_1(parametr):     # rozpoczna prace hamowni
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
             s.send(b'[1|0|0|0|0]')
             s.close()
-        return "Jazda Jazda!!!"
 
     def number_2(parametr):     # zmiania predkosci silnia
-        return "two"
+        wartos_pwm = input("Podaj wartos pwm (25 - 95): ")
+        # command = f"[]"
+        print(wartos_pwm)
 
     def number_3(parametr):     # zapis danych z czujikow - uruchomienie tasku ReceiveFrame
-        return "Ustawiono nowa wartosc PWM"
+        ile_ramek = input("Podaj iloc ramke do odebrania: ")
+        print(ile_ramek)
+        event_receiveframe.set()
 
-    def number_4(parametr):     # podzielenie danych na czytelne do matlaba
-        event.set()
-        return "Zapis rozpoczety"
+    def number_4(parametr):     # podzielenie danych na czytelne do matlaba - uruchomienie tasku ThreadFileOperations
+        event_fileoperation.set()
 
-    def number_5(parametr):     # zakonczenie pracy aplikacji
+    def number_5(parametr):     # zakonczenie pracy aplikacji - skasownaie wszystkich taskow
         pass
 
-    def number_6(parametr):     # wybranie trybu pracy aplikacji
-        pass
+    def number_6(parametr):     # wybranie trybu pracy hamowni
+        tryb = input("Podaj tryb pracy (1, 2 lub 3): ")
+        print(tryb)
 
 
 ###################################################################################################################################
@@ -63,6 +67,7 @@ class ThreadCmd(threading.Thread):
 
     def run(self):
         print("Alikacja obslugi hamowni")
+        switch = Switcher()
         while True:
             print("""
 Komendy:\n
@@ -75,8 +80,7 @@ Komendy:\n
 6 - Uruchomienie trybu pracy hamowni;
                   """)
             wybrana_komenda = input("Wybierz komende: ")
-            switch = Switcher()
-            print(switch.numbers_to_methods_to_strings(wybrana_komenda, 0))
+            switch.numbers_to_methods_to_strings(wybrana_komenda, 0)
             print("\n")
 
 
@@ -89,18 +93,19 @@ class ThreadReceiveFrame(threading.Thread):
 
     def run(self):
         while True:
-            event.wait()
+            event_receiveframe.wait()
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((HOST, PORT))
-                with open('wyniki.txt', 'w') as f:
+                with open('Data_dumps/frame.txt', 'w+') as f:
                     for i in range(4000):
-                        rcv_frame = s.recv(80)
+                        rcv_frame = s.recv(80)  # odbior stalej dlugosci ramki
                         rcv_frame = rcv_frame.decode("utf-8")
                         rcv_frame += '\n'
                         f.write(rcv_frame)
                     f.close()
                 s.close()
-            event.clear()
+            print("ThreadReceiveFrame - zapis zakonczony!!!")
+            event_receiveframe.clear()
 
 
 class ThreadFileOperations(threading.Thread):

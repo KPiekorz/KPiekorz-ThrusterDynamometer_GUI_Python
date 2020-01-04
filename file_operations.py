@@ -93,6 +93,3 @@ def read_frame_from_file():
         write_to_temp_file(dict_frame)
         write_to_pres_shunt_tenso_file(dict_frame)
         write_to_vibro_hal_file(dict_frame)
-
-
-read_frame_from_file()
