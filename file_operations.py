@@ -7,6 +7,54 @@ def time_to_sec(min, sec, milis):
     return min_to_sec+sec+milis_to_sec
 
 
+def erase_files():
+    open("Data_dumps/temp.txt", "w+").close()
+    open("Data_dumps/pressure.txt", "w+").close()
+    open("Data_dumps/vibration.txt", "w+").close()
+    open("Data_dumps/shunt.txt", "w+").close()
+    open("Data_dumps/hal.txt", "w+").close()
+    open("Data_dumps/tenso.txt", "w+").close()
+
+
+def write_to_temp_file(dict_frame):
+    temp_file = open("Data_dumps/temp.txt", "a+")
+    temp = f"{str(dict_frame['Time'])} {str(dict_frame['Temperature'][0])} {str(dict_frame['Temperature'][1])}\n"
+    temp_file.write(temp)
+    temp_file.close()
+
+
+def write_to_pres_shunt_tenso_file(dict_frame):
+    press_file = open("Data_dumps/pressure.txt", "a+")
+    shunt_file = open("Data_dumps/shunt.txt", "a+")
+    tenso_file = open("Data_dumps/tenso.txt", "a+")
+    press = f"{str(dict_frame['Time'])} {str(dict_frame['Pressure'])}\n"
+    shunt = f"{str(dict_frame['Time'])} {str(dict_frame['Shunt'])}\n"
+    tenso = f"{str(dict_frame['Time'])} {str(dict_frame['Tensometer'])}\n"
+    press_file.write(press)
+    shunt_file.write(shunt)
+    tenso_file.write(tenso)
+    press_file.close()
+    shunt_file.close()
+    tenso_file.close()
+
+
+def write_to_vibro_hal_file(dict_frame):
+    time = dict_frame['Time']
+    vibro_file = open("Data_dumps/vibration.txt", "a+")
+    hal_file = open("Data_dumps/hal.txt", "a+")
+
+    for i in range(10):
+        vibro = f"{str(time)} {str(dict_frame['Vibration'][i])}\n"
+        hal = f"{str(time)} {str(dict_frame['Hal'][i])}\n"
+        vibro_file.write(vibro)
+        hal_file.write(hal)
+        time += 0.0001
+        time = round(time, 4)
+
+    vibro_file.close()
+    hal_file.close()
+
+
 def make_dict_from_frame(frame):
     field_values = re.findall(r"[\.\w']+", frame)
     # zamieniamy liczby na int
@@ -27,7 +75,6 @@ def make_dict_from_frame(frame):
     field_values.append(shunt)
     field_values.append(hal_table)
     field_values.append(tenso)
-    print(field_values)
 
     field_names = ['Time', 'Temperature', 'Pressure', 'Vibration', 'Shunt', 'Hal', 'Tensometer']
     return dict(zip(field_names, field_values))
@@ -35,14 +82,17 @@ def make_dict_from_frame(frame):
 
 def read_frame_from_file():
     '''tworz pliki z podzialem na wyniki z poszczegolnych czujnikow'''
-    f = open("Data_dumps/moje_wyniki.txt", "r")
+    frame_files = open("Data_dumps/moje_wyniki.txt", "r")
+    frames = frame_files.readlines()
+    frame_files.close()
 
-    f1 = f.readlines()
-    print(f1[1])
-    dict_frame = make_dict_from_frame(f1[1])
-    print(dict_frame['Time'])
+    erase_files()
 
-    f.close()
+    for frame in frames:
+        dict_frame = make_dict_from_frame(frame)
+        write_to_temp_file(dict_frame)
+        write_to_pres_shunt_tenso_file(dict_frame)
+        write_to_vibro_hal_file(dict_frame)
 
 
 read_frame_from_file()
