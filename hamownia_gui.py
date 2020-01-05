@@ -1,5 +1,6 @@
 import threading
 import socket
+import queue
 from file_operations import read_frame_from_file
 
 
@@ -8,10 +9,8 @@ PORT = 1234
 # HOST = '169.254.57.55'
 # PORT = 80
 
-event_receiveframe = threading.Event()
-event_receiveframe.clear()
-event_fileoperation = threading.Event()
-event_fileoperation.clear()
+queue_receiveframe = queue.Queue()
+queue_fileoperation = queue.Queue()
 
 ###################################################################################################################################
 
@@ -36,23 +35,43 @@ class Switcher(object):
 
     def number_2(parametr):     # zmiania predkosci silnia
         wartos_pwm = input("Podaj wartos pwm (25 - 95): ")
-        # command = f"[]"
-        print(wartos_pwm)
+        command = f"[2|{str(wartos_pwm)}|0|0|0]"
+        command = command.encode('utf-8')
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((HOST, PORT))
+            s.send(command)
+            s.close()
 
     def number_3(parametr):     # zapis danych z czujikow - uruchomienie tasku ReceiveFrame
         ile_ramek = input("Podaj iloc ramke do odebrania: ")
-        print(ile_ramek)
-        event_receiveframe.set()
+        queue_receiveframe.put(ile_ramek)
+
 
     def number_4(parametr):     # podzielenie danych na czytelne do matlaba - uruchomienie tasku ThreadFileOperations
-        event_fileoperation.set()
+        queue_fileoperation.put(1)
 
     def number_5(parametr):     # zakonczenie pracy aplikacji - skasownaie wszystkich taskow
-        pass
+        queue_receiveframe.put(0)
+        queue_fileoperation.put(0)
 
     def number_6(parametr):     # wybranie trybu pracy hamowni
-        tryb = input("Podaj tryb pracy (1, 2 lub 3): ")
-        print(tryb)
+        pass
+        # def switch_tryby_pracy(argument):
+        #     switcher = {
+        #         1: '5',     # long test
+        #         2: '6',     # short test
+        #         3: '7'      # throttle test
+        #     }
+        #     return switcher.get(argument, 'nie ma takiego trybu')
+        #
+        # tryb = input("Podaj tryb pracy (1, 2 lub 3): ")
+        # command = f"[{switch_tryby_pracy(tryb)}"
+        #
+        # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        #     s.connect((HOST, PORT))
+        #     s.send(b'[1|0|0|0|0]')
+        #     s.close()
 
 
 ###################################################################################################################################
@@ -82,6 +101,8 @@ Komendy:\n
             wybrana_komenda = input("Wybierz komende: ")
             switch.numbers_to_methods_to_strings(wybrana_komenda, 0)
             print("\n")
+            if wybrana_komenda == '5':
+                break
 
 
 class ThreadReceiveFrame(threading.Thread):
@@ -93,19 +114,22 @@ class ThreadReceiveFrame(threading.Thread):
 
     def run(self):
         while True:
-            event_receiveframe.wait()
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((HOST, PORT))
-                with open('Data_dumps/frame.txt', 'w+') as f:
-                    for i in range(4000):
-                        rcv_frame = s.recv(80)  # odbior stalej dlugosci ramki
-                        rcv_frame = rcv_frame.decode("utf-8")
-                        rcv_frame += '\n'
-                        f.write(rcv_frame)
-                    f.close()
-                s.close()
-            print("ThreadReceiveFrame - zapis zakonczony!!!")
-            event_receiveframe.clear()
+            msg = queue_receiveframe.get()
+            if msg == 0:
+                break
+            else:
+                print(msg)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.connect((HOST, PORT))
+                    with open('Data_dumps/frame.txt', 'w+') as f:
+                        for i in range(msg):
+                            rcv_frame = s.recv(141)  # odbior stalej dlugosci ramki
+                            rcv_frame = rcv_frame.decode("utf-8")
+                            rcv_frame += '\n'
+                            f.write(rcv_frame)
+                        f.close()
+                    s.close()
+                print("ThreadReceiveFrame - zapis zakonczony!!!")
 
 
 class ThreadFileOperations(threading.Thread):
@@ -116,7 +140,12 @@ class ThreadFileOperations(threading.Thread):
         self.i = i
 
     def run(self):
-        pass
+        while True:
+            message = queue_fileoperation.get()
+            if message == 0:
+                break
+            else:
+                read_frame_from_file()
 
 
 class ThreadPlot(threading.Thread):
@@ -145,3 +174,5 @@ if __name__ == "__main__":
     threadcmd.join()
     threadreceiveframe.join()
     threadfileoperations.join()
+
+    print("Byeeeeee!!!")
